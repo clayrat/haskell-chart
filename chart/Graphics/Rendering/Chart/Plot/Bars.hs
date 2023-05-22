@@ -51,8 +51,8 @@ instance BarsPlotValue Int where
     barsAdd       = (+)
 
 instance BarsPlotValue LogValue where
-    barsReference = 0
-    barsAdd       = (+)
+    barsReference = 1
+    barsAdd       = (*)
 
 data PlotBarsStyle
     = BarsStacked   -- ^ Bars for a fixed x are stacked vertically
