@@ -51,7 +51,7 @@ instance BarsPlotValue Int where
     barsAdd       = (+)
 
 instance BarsPlotValue LogValue where
-    barsReference = 1
+    barsReference = 0
     barsAdd       = (*)
 
 data PlotBarsStyle
