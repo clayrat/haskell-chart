@@ -33,7 +33,8 @@ import Data.List(nub,sort)
 import Graphics.Rendering.Chart.Geometry hiding (x0, y0)
 import Graphics.Rendering.Chart.Drawing
 import Graphics.Rendering.Chart.Plot.Types
-import Graphics.Rendering.Chart.Axis
+import Graphics.Rendering.Chart.Axis ( PlotValue )
+import Graphics.Rendering.Chart.Axis.Floating (LogValue(..))
 import Data.Colour (opaque)
 import Data.Colour.Names (black)
 import Data.Default.Class
@@ -46,6 +47,10 @@ instance BarsPlotValue Double where
     barsReference = 0
     barsAdd       = (+)
 instance BarsPlotValue Int where
+    barsReference = 0
+    barsAdd       = (+)
+
+instance BarsPlotValue LogValue where
     barsReference = 0
     barsAdd       = (+)
 
@@ -135,13 +140,13 @@ renderPlotBars p pmap = case _plot_bars_style p of
       BarsStacked   -> forM_ vals stackedBars
   where
     clusteredBars (x,ys) = do
-       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (fstyle,_)) -> 
-           withFillStyle fstyle $ 
+       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (fstyle,_)) ->
+           withFillStyle fstyle $
              alignFillPath (barPath (offset i) x yref0 y)
              >>= fillPath
-       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (_,mlstyle)) -> 
-           whenJust mlstyle $ \lstyle -> 
-             withLineStyle lstyle $ 
+       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (_,mlstyle)) ->
+           whenJust mlstyle $ \lstyle ->
+             withLineStyle lstyle $
                alignStrokePath (barPath (offset i) x yref0 y)
                >>= strokePath
 
@@ -156,13 +161,13 @@ renderPlotBars p pmap = case _plot_bars_style p of
              BarsLeft     -> 0
              BarsRight    -> -width
              BarsCentered -> -(width/2)
-       forM_ (zip y2s styles) $ \((y0,y1), (fstyle,_)) -> 
-           withFillStyle fstyle $ 
+       forM_ (zip y2s styles) $ \((y0,y1), (fstyle,_)) ->
+           withFillStyle fstyle $
              alignFillPath (barPath ofs x y0 y1)
              >>= fillPath
-       forM_ (zip y2s styles) $ \((y0,y1), (_,mlstyle)) -> 
-           whenJust mlstyle $ \lstyle -> 
-              withLineStyle lstyle $ 
+       forM_ (zip y2s styles) $ \((y0,y1), (_,mlstyle)) ->
+           whenJust mlstyle $ \lstyle ->
+              withLineStyle lstyle $
                 alignStrokePath (barPath ofs x y0 y1)
                 >>= strokePath
 
@@ -210,8 +215,8 @@ stack :: (BarsPlotValue y) => [y] -> [y]
 stack = scanl1 barsAdd
 
 renderPlotLegendBars :: (FillStyle,Maybe LineStyle) -> Rect -> BackendProgram ()
-renderPlotLegendBars (fstyle,_) r = 
-  withFillStyle fstyle $ 
+renderPlotLegendBars (fstyle,_) r =
+  withFillStyle fstyle $
     fillPath (rectPath r)
 
 $( makeLenses ''PlotBars )
