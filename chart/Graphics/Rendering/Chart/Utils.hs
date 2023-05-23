@@ -2,9 +2,10 @@
 module Graphics.Rendering.Chart.Utils(
     isValidNumber,
     maybeM,
+    log10
   ) where
 
--- | Checks if the given value is and actual numeric value and not 
+-- | Checks if the given value is and actual numeric value and not
 --   a concept like NaN or infinity.
 isValidNumber :: (RealFloat a) => a -> Bool
 isValidNumber v = not (isNaN v) && not (isInfinite v)
@@ -13,4 +14,5 @@ isValidNumber v = not (isNaN v) && not (isInfinite v)
 maybeM :: (Monad m) => b -> (a -> m b) -> Maybe a -> m b
 maybeM v = maybe (return v)
 
-
+log10 :: (Floating a) => a -> a
+log10 = logBase 10

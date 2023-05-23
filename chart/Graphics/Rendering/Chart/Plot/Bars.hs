@@ -35,6 +35,7 @@ import Graphics.Rendering.Chart.Drawing
 import Graphics.Rendering.Chart.Plot.Types
 import Graphics.Rendering.Chart.Axis ( PlotValue )
 import Graphics.Rendering.Chart.Axis.Floating (LogValue(..))
+import Graphics.Rendering.Chart.Utils ( log10 )
 import Data.Colour (opaque)
 import Data.Colour.Names (black)
 import Data.Default.Class
@@ -51,7 +52,7 @@ instance BarsPlotValue Int where
     barsAdd       = (+)
 
 instance BarsPlotValue LogValue where
-    barsReference a = 10.0 ^^ (floor (logBase 10 a) :: Integer)
+    barsReference a = 10.0 ^^ (floor (log10 a) :: Integer)
     barsAdd       = (+)
 
 data PlotBarsStyle
