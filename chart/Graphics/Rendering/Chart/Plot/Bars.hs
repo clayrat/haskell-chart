@@ -40,19 +40,19 @@ import Data.Colour.Names (black)
 import Data.Default.Class
 
 class PlotValue a => BarsPlotValue a where
-    barsReference :: a
+    barsReference :: a -> a
     barsAdd       :: a -> a -> a
 
 instance BarsPlotValue Double where
-    barsReference = 0
+    barsReference = const 0
     barsAdd       = (+)
 instance BarsPlotValue Int where
-    barsReference = 0
+    barsReference = const 0
     barsAdd       = (+)
 
 instance BarsPlotValue LogValue where
-    barsReference = 0
-    barsAdd       = (*)
+    barsReference a = 10.0 ^^ (floor (logBase 10 a) :: Integer)
+    barsAdd       = (+)
 
 data PlotBarsStyle
     = BarsStacked   -- ^ Bars for a fixed x are stacked vertically
@@ -101,8 +101,8 @@ data PlotBars x y = PlotBars {
    --   respect to the device coordinate corresponding to x.
    _plot_bars_alignment       :: PlotBarsAlignment,
 
-   -- | The starting level for the chart (normally 0).
-   _plot_bars_reference       :: y,
+   -- | The starting level for the chart, a function of lowest/highest value (normally const 0).
+   _plot_bars_reference       :: y -> y,
 
    _plot_bars_singleton_width :: Double,
 
@@ -176,7 +176,8 @@ renderPlotBars p pmap = case _plot_bars_style p of
       let (Point _ y0') = pmap' (x,y0)
       rectPath (Rect (Point (x'+xos) y0') (Point (x'+xos+width) y'))
 
-    yref0 = _plot_bars_reference p
+    yref0 = _plot_bars_reference p $ minVal p
+
     vals  = _plot_bars_values p
     width = case _plot_bars_spacing p of
         BarsFixGap gap minw -> let w = max (minXInterval - gap) minw in
@@ -197,19 +198,29 @@ renderPlotBars p pmap = case _plot_bars_style p of
     nys    = maximum [ length ys | (_,ys) <- vals ]
 
     pmap'  = mapXY pmap
-    mapX x = p_x (pmap' (x,barsReference))
+    mapX x = p_x (pmap' (x,barsReference $ minVal p))
 
 whenJust :: (Monad m) => Maybe a -> (a -> m ()) -> m ()
 whenJust (Just a) f = f a
 whenJust _        _ = return ()
 
+minVal :: (BarsPlotValue y) => PlotBars x y -> y
+minVal p = case _plot_bars_style p of
+             BarsClustered -> minimum (concatMap snd vals)
+             BarsStacked   -> minimum (map (head . snd) vals)
+  where vals = _plot_bars_values p
+
 allBarPoints :: (BarsPlotValue y) => PlotBars x y -> ([x],[y])
 allBarPoints p = case _plot_bars_style p of
-    BarsClustered -> ( [x| (x,_) <- pts], y0:concat [ys| (_,ys) <- pts] )
-    BarsStacked   -> ( [x| (x,_) <- pts], y0:concat [stack ys | (_,ys) <- pts] )
+    BarsClustered ->
+      let ys = concatMap snd pts in
+      ( [x| (x,_) <- pts], f0 (minimum ys):ys )
+    BarsStacked   ->
+      let ys = map snd pts in
+      ( [x| (x,_) <- pts], f0 (minimum (map head ys)):concatMap stack ys)
   where
     pts = _plot_bars_values p
-    y0  = _plot_bars_reference p
+    f0  = _plot_bars_reference p
 
 stack :: (BarsPlotValue y) => [y] -> [y]
 stack = scanl1 barsAdd
