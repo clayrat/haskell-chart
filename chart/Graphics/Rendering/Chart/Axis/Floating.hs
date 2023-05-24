@@ -30,7 +30,7 @@ module Graphics.Rendering.Chart.Axis.Floating(
     loga_labelf
 ) where
 
-import Data.List(minimumBy)
+import Data.List(minimumBy, nub)
 import Data.Ord (comparing)
 import Data.Default.Class
 import Numeric (showEFloat, showFFloat)
@@ -142,7 +142,7 @@ showDs xs = case showWithoutOffset xs of
 
 showWithoutOffset :: RealFloat d => [d] -> [String]
 showWithoutOffset xs
-  | useScientificNotation = map (\x -> showEFloat' (Just 1) x) xs
+  | useScientificNotation = map (showEFloat' (Just 1)) xs
   | otherwise = map showD xs
   where
     -- use scientific notation if max value is too big or too small
@@ -253,12 +253,12 @@ instance (Show a, RealFloat a) => Default (LogAxisParams a) where
     { _loga_labelf = showDs
     }
 
--- | Generate a log axis automatically, scaled appropriate for the
+-- | Generate a log axis automatically, scaled appropriately for the
 -- input data.
 autoScaledLogAxis :: RealFloat a => LogAxisParams a -> AxisFn a
 autoScaledLogAxis lap ps0 =
     makeAxis' (realToFrac . log) (realToFrac . exp)
-              (_loga_labelf lap) (wrap rlabelvs, wrap rtickvs, wrap rgridvs)
+              (_loga_labelf lap) (wrap rlabelvs, wrap rtickvs, wrap rlabelvs)
         where
           ps        = filter (\x -> isValidNumber x && 0 < x) ps0
           (minV,maxV) = (minimum ps,maximum ps)
@@ -266,7 +266,7 @@ autoScaledLogAxis lap ps0 =
           range []  = (3,30)
           range _   | minV == maxV = (realToFrac $ minV/3, realToFrac $ maxV*3)
                     | otherwise    = (realToFrac $ minV,   realToFrac $ maxV)
-          (rlabelvs, rtickvs, rgridvs) = logTicks (range ps)
+          (rlabelvs, rtickvs) = logTicks (range ps)
 
 
 data LogAxisParams a = LogAxisParams {
@@ -276,13 +276,13 @@ data LogAxisParams a = LogAxisParams {
 
 {-
  Rules: Do not subdivide between powers of 10 until all powers of 10
-          get a major ticks.
+          get major ticks.
         Do not subdivide between powers of ten as [1,2,4,6,8,10] when
-          5 gets a major ticks
-          (ie the major ticks need to be a subset of the minor tick)
+          5 gets a major tick
+          (i.e. the major ticks need to be a subset of the minor ticks)
 -}
-logTicks :: Range -> ([Rational],[Rational],[Rational])
-logTicks (low,high) = (major,minor,major)
+logTicks :: Range -> ([Rational],[Rational])
+logTicks (low,high) = (nub major,nub minor)
  where
   pf :: RealFrac a => a -> (Integer, a)
   pf = properFraction
@@ -330,8 +330,8 @@ logTicks (low,high) = (major,minor,major)
 
   minor | 50 < log10 ratio' = map roundPow $
                               steps 50 (log10 dl', log10 dh')
-        | 6 < log10 ratio'  = filterX [1,10]
-        | 3 < log10 ratio'  = filterX [1,5,10]
+        | 10 < log10 ratio' = filterX [1,10]
+        | 6 < log10 ratio'  = filterX [1,5,10]
         | 6 < ratio'        = filterX [1..10]
         | 3 < ratio'        = filterX [1,1.2..10]
         | otherwise         = steps 50 (dl', dh')
