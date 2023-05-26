@@ -1,5 +1,6 @@
 module Test20 where
 
+import Text.Printf
 import Graphics.Rendering.Chart
 import Data.Colour
 import Data.Colour.Names
@@ -45,15 +46,19 @@ chart = layoutToRenderable layout
       $ def :: Layout PlotIndex LogValue
 
   bars2 = plot_bars_titles .~ ["","after","before"]
-      $ plot_bars_values .~ addIndexes  dat'
+      $ plot_bars_values .~ addIndexes dat'
       $ plot_bars_style .~ BarsStacked
       $ plot_bars_spacing .~ BarsFixGap 20 5
+      $ plot_bars_hover_labels ?~ (\[b,p,m] -> [ Nothing
+                                               , Nothing
+                                               , Just $ printf "%0.2f" $ if p /= 0 then unLogValue p else -unLogValue m])
       $ plot_bars_item_styles .~ map (\c -> (solidFillStyle $ withOpacity c 0.7, Nothing)) [grey, red, green]
       $ def
 
   dat' = map (\[a,b] -> [ LogValue $ min a b
                         , LogValue $ if a < b then b - a else 0
-                        , LogValue $ if b < a then a - b else 0]) dat
+                        , LogValue $ if b < a then a - b else 0
+                        ]) dat
 
   alabels = map show [1..8]
 

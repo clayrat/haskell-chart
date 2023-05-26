@@ -1,8 +1,9 @@
 -- | Non chart specific utility functions.
 module Graphics.Rendering.Chart.Utils(
     isValidNumber,
+    log10,
     maybeM,
-    log10
+    whenJust
   ) where
 
 -- | Checks if the given value is and actual numeric value and not
@@ -10,9 +11,13 @@ module Graphics.Rendering.Chart.Utils(
 isValidNumber :: (RealFloat a) => a -> Bool
 isValidNumber v = not (isNaN v) && not (isInfinite v)
 
+log10 :: (Floating a) => a -> a
+log10 = logBase 10
+
 -- | Version of 'Prelude.maybe' that returns a monadic value.
 maybeM :: (Monad m) => b -> (a -> m b) -> Maybe a -> m b
 maybeM v = maybe (return v)
 
-log10 :: (Floating a) => a -> a
-log10 = logBase 10
+-- | Specialization to ()
+whenJust :: (Monad m) => Maybe a -> (a -> m ()) -> m ()
+whenJust m f = maybeM () f m

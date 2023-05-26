@@ -23,6 +23,7 @@ module Graphics.Rendering.Chart.Plot.Bars(
     plot_bars_alignment,
     plot_bars_reference,
     plot_bars_singleton_width,
+    plot_bars_hover_labels,
     plot_bars_values,
 
 ) where
@@ -33,27 +34,33 @@ import Data.List(nub,sort)
 import Graphics.Rendering.Chart.Geometry hiding (x0, y0)
 import Graphics.Rendering.Chart.Drawing
 import Graphics.Rendering.Chart.Plot.Types
-import Graphics.Rendering.Chart.Axis ( PlotValue )
+import Graphics.Rendering.Chart.Axis ()
+import Graphics.Rendering.Chart.Axis.Types
 import Graphics.Rendering.Chart.Axis.Floating (LogValue(..))
-import Graphics.Rendering.Chart.Utils ( log10 )
+import Graphics.Rendering.Chart.Utils ( log10, whenJust )
 import Data.Colour (opaque)
 import Data.Colour.Names (black)
 import Data.Default.Class
 
 class PlotValue a => BarsPlotValue a where
-    barsReference :: a -> a
+    barsIsNull    :: a -> Bool
+    barsReference :: [a] -> a
     barsAdd       :: a -> a -> a
 
 instance BarsPlotValue Double where
+    barsIsNull a  = a == 0.0
     barsReference = const 0
     barsAdd       = (+)
 instance BarsPlotValue Int where
+    barsIsNull a  = a == 0
     barsReference = const 0
     barsAdd       = (+)
 
 instance BarsPlotValue LogValue where
-    barsReference a = 10.0 ^^ (floor (log10 a) :: Integer)
-    barsAdd       = (+)
+    barsIsNull (LogValue a) = a == 0.0
+    barsReference as        =
+      10.0 ^^ (floor (log10 $ minimum $ filter (/= 0.0) as) :: Integer)
+    barsAdd                 = (+)
 
 data PlotBarsStyle
     = BarsStacked   -- ^ Bars for a fixed x are stacked vertically
@@ -102,10 +109,14 @@ data PlotBars x y = PlotBars {
    --   respect to the device coordinate corresponding to x.
    _plot_bars_alignment       :: PlotBarsAlignment,
 
-   -- | The starting level for the chart, a function of lowest/highest value (normally const 0).
-   _plot_bars_reference       :: y -> y,
+   -- | The starting level for the chart, a function of some statistic
+   --   (normally the lowest value or just const 0).
+   _plot_bars_reference       :: [y] -> y,
 
    _plot_bars_singleton_width :: Double,
+
+   -- | Optional function to display hovering labels above each bar
+   _plot_bars_hover_labels    :: Maybe ([y] -> [Maybe String]),
 
    -- | The actual points to be plotted.
    _plot_bars_values          :: [ (x,[y]) ]
@@ -120,6 +131,7 @@ instance BarsPlotValue y => Default (PlotBars x y) where
     , _plot_bars_alignment       = BarsCentered
     , _plot_bars_values          = []
     , _plot_bars_singleton_width = 20
+    , _plot_bars_hover_labels    = Nothing
     , _plot_bars_reference       = barsReference
     }
     where
@@ -141,20 +153,27 @@ renderPlotBars p pmap = case _plot_bars_style p of
       BarsStacked   -> forM_ vals stackedBars
   where
     clusteredBars (x,ys) = do
-       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (fstyle,_)) ->
+       let offset = case _plot_bars_alignment p of
+              BarsLeft     -> \i -> fromIntegral i * width
+              BarsRight    -> \i -> fromIntegral (i-nys) * width
+              BarsCentered -> \i -> fromIntegral (2*i-nys) * width/2
+       forM_ (zip3 [0..] ys styles) $ \(i, y, (fstyle,_)) ->
+           unless (barsIsNull y) $
            withFillStyle fstyle $
              alignFillPath (barPath (offset i) x yref0 y)
              >>= fillPath
-       forM_ (zip3 [0,1..] ys styles) $ \(i, y, (_,mlstyle)) ->
+       forM_ (zip3 [0..] ys styles) $ \(i, y, (_,mlstyle)) ->
+           unless (barsIsNull y) $
            whenJust mlstyle $ \lstyle ->
              withLineStyle lstyle $
                alignStrokePath (barPath (offset i) x yref0 y)
                >>= strokePath
-
-    offset = case _plot_bars_alignment p of
-      BarsLeft     -> \i -> fromIntegral i * width
-      BarsRight    -> \i -> fromIntegral (i-nys) * width
-      BarsCentered -> \i -> fromIntegral (2*i-nys) * width/2
+       whenJust (_plot_bars_hover_labels p) $ \f ->
+         forM_ (zip3 [0..] ys (f ys)) $ \(i, y, s') ->
+            whenJust s' $ \s ->
+              do let Point x' y' = pmap' (x, y)
+                 (tx, ty) <- textDimension s
+                 drawText (Point (x' - tx/2 + offset i + width/2) (y' - ty/2)) s
 
     stackedBars (x,ys) = do
        let y2s = zip (yref0:stack ys) (stack ys)
@@ -163,23 +182,36 @@ renderPlotBars p pmap = case _plot_bars_style p of
              BarsRight    -> -width
              BarsCentered -> -(width/2)
        forM_ (zip y2s styles) $ \((y0,y1), (fstyle,_)) ->
+           unless (y0 == y1) $
            withFillStyle fstyle $
              alignFillPath (barPath ofs x y0 y1)
              >>= fillPath
        forM_ (zip y2s styles) $ \((y0,y1), (_,mlstyle)) ->
+           unless (y0 == y1) $
            whenJust mlstyle $ \lstyle ->
               withLineStyle lstyle $
                 alignStrokePath (barPath ofs x y0 y1)
                 >>= strokePath
+       whenJust (_plot_bars_hover_labels p) $ \f ->
+         forM_ (zip (stack ys) (f ys)) $ \(y,s') ->
+            whenJust s' $ \s ->
+              do let Point x' y' = pmap' (x, y)
+                 (tx, ty) <- textDimension s
+                 drawText (Point (x' - tx/2) (y' - ty/2)) s
 
-    barPath xos x y0 y1 = do
-      let (Point x' y') = pmap' (x,y1)
-      let (Point _ y0') = pmap' (x,y0)
+    barPath xos x y0 y1 =
+      let Point x' y' = pmap' (x,y1)
+          Point _ y0' = pmap' (x,y0)
+      in
       rectPath (Rect (Point (x'+xos) y0') (Point (x'+xos+width) y'))
 
-    yref0 = _plot_bars_reference p $ minVal p
-
     vals  = _plot_bars_values p
+    lowerVals = case _plot_bars_style p of
+                  BarsClustered -> concatMap snd vals
+                  BarsStacked   -> map (head . snd) vals
+
+    yref0 = _plot_bars_reference p lowerVals
+
     width = case _plot_bars_spacing p of
         BarsFixGap gap minw -> let w = max (minXInterval - gap) minw in
             case _plot_bars_style p of
@@ -199,26 +231,16 @@ renderPlotBars p pmap = case _plot_bars_style p of
     nys    = maximum [ length ys | (_,ys) <- vals ]
 
     pmap'  = mapXY pmap
-    mapX x = p_x (pmap' (x,barsReference $ minVal p))
-
-whenJust :: (Monad m) => Maybe a -> (a -> m ()) -> m ()
-whenJust (Just a) f = f a
-whenJust _        _ = return ()
-
-minVal :: (BarsPlotValue y) => PlotBars x y -> y
-minVal p = case _plot_bars_style p of
-             BarsClustered -> minimum (concatMap snd vals)
-             BarsStacked   -> minimum (map (head . snd) vals)
-  where vals = _plot_bars_values p
+    mapX x = p_x $ pmap' (x, yref0)
 
 allBarPoints :: (BarsPlotValue y) => PlotBars x y -> ([x],[y])
 allBarPoints p = case _plot_bars_style p of
     BarsClustered ->
       let ys = concatMap snd pts in
-      ( [x| (x,_) <- pts], f0 (minimum ys):ys )
+      ( [x| (x,_) <- pts], f0 ys:ys )
     BarsStacked   ->
       let ys = map snd pts in
-      ( [x| (x,_) <- pts], f0 (minimum (map head ys)):concatMap stack ys)
+      ( [x| (x,_) <- pts], f0 (map head ys):concatMap stack ys)
   where
     pts = _plot_bars_values p
     f0  = _plot_bars_reference p

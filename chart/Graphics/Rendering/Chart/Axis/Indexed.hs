@@ -16,7 +16,6 @@ module Graphics.Rendering.Chart.Axis.Indexed(
     addIndexes,
 ) where
 
-import Control.Arrow (first)
 import Data.Default.Class
 
 import Graphics.Rendering.Chart.Axis.Types
@@ -33,7 +32,7 @@ instance PlotValue PlotIndex where
 
 -- | Augment a list of values with index numbers for plotting.
 addIndexes :: [a] -> [(PlotIndex,a)]
-addIndexes as = map (first PlotIndex) (zip [0..] as)
+addIndexes = zipWith (\n x -> (PlotIndex n, x)) [0..]
 
 -- | Create an axis for values indexed by position. The
 --   list of strings are the labels to be used.

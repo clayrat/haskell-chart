@@ -68,7 +68,7 @@ instance PlotValue Percent where
 
 -- | A wrapper class for doubles used to indicate they are to
 -- be plotted against a log axis.
-newtype LogValue = LogValue Double
+newtype LogValue = LogValue {unLogValue :: Double}
     deriving (Eq, Ord, Num, Real, Fractional, RealFrac, Floating, RealFloat)
 
 instance Show LogValue where
