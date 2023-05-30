@@ -60,5 +60,5 @@ chart = layoutToRenderable layout
                         , LogValue $ if b < a then a - b else 0
                         ]) dat
 
-  alabels = map show [1..8]
+  alabels = map (\n -> "val" ++ show n) [1..8]
 

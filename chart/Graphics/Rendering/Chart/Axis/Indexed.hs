@@ -14,6 +14,7 @@ module Graphics.Rendering.Chart.Axis.Indexed(
     autoIndexAxis',
     autoIndexAxis,
     addIndexes,
+    addRevIndexes,
 ) where
 
 import Data.Default.Class
@@ -33,6 +34,10 @@ instance PlotValue PlotIndex where
 -- | Augment a list of values with index numbers for plotting.
 addIndexes :: [a] -> [(PlotIndex,a)]
 addIndexes = zipWith (\n x -> (PlotIndex n, x)) [0..]
+
+-- | Augment a list of values with index numbers for plotting.
+addRevIndexes :: [a] -> [(PlotIndex,a)]
+addRevIndexes xs = zipWith (\n x -> (PlotIndex n, x)) (reverse $ take (length xs) [0..]) xs
 
 -- | Create an axis for values indexed by position. The
 --   list of strings are the labels to be used.

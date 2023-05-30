@@ -16,6 +16,7 @@ module Graphics.Rendering.Chart.Plot.Bars(
     BarsPlotValue(..),
 
     plotBars,
+    plotHBars,
     plot_bars_style,
     plot_bars_item_styles,
     plot_bars_titles,
@@ -30,6 +31,7 @@ module Graphics.Rendering.Chart.Plot.Bars(
 
 import Control.Lens
 import Control.Monad
+import Data.Tuple(swap)
 import Data.List(nub,sort)
 import Graphics.Rendering.Chart.Geometry hiding (x0, y0)
 import Graphics.Rendering.Chart.Drawing
@@ -243,6 +245,106 @@ allBarPoints p = case _plot_bars_style p of
     pts = _plot_bars_values p
     xs  = map fst pts
     f0  = _plot_bars_reference p
+
+--- horizontal
+
+plotHBars :: (BarsPlotValue x) => PlotBars y x -> Plot x y
+plotHBars p = Plot {
+        _plot_render     = renderPlotHBars p,
+        _plot_legend     = zip (_plot_bars_titles p)
+                               (map renderPlotLegendBars
+                                    (_plot_bars_item_styles p)),
+        _plot_all_points = swap $ allBarPoints p
+
+    }
+
+renderPlotHBars :: (BarsPlotValue x) => PlotBars y x -> PointMapFn x y -> BackendProgram ()
+renderPlotHBars p pmap = case _plot_bars_style p of
+      BarsClustered -> forM_ vals clusteredBars
+      BarsStacked   -> forM_ vals stackedBars
+  where
+    clusteredBars (y,xs) = do
+       let offset = case _plot_bars_alignment p of
+              BarsLeft     -> \i -> fromIntegral i * height
+              BarsRight    -> \i -> fromIntegral (i-nxs) * height
+              BarsCentered -> \i -> fromIntegral (2*i-nxs) * height/2
+       forM_ (zip3 [0..] xs styles) $ \(i, x, (fstyle,_)) ->
+           unless (barsIsNull x) $
+           withFillStyle fstyle $
+             alignFillPath (barPath (offset i) xref0 x y)
+             >>= fillPath
+       forM_ (zip3 [0..] xs styles) $ \(i, x, (_,mlstyle)) ->
+           unless (barsIsNull x) $
+           whenJust mlstyle $ \lstyle ->
+             withLineStyle lstyle $
+               alignStrokePath (barPath (offset i) xref0 x y)
+               >>= strokePath
+       whenJust (_plot_bars_hover_labels p) $ \f ->
+         forM_ (zip3 [0..] xs (f xs)) $ \(i, x, s') ->
+            whenJust s' $ \s ->
+              do let Point x' y' = pmap' (x, y)
+                 (tx, ty) <- textDimension s
+                 drawText (Point (x' - tx/2 + offset i + height/2) (y' - ty/2)) s
+
+    stackedBars (y,xs) = do
+       let x2s = zip (xref0:stack xs) (stack xs)
+       let ofs = case _plot_bars_alignment p of
+             BarsLeft     -> 0
+             BarsRight    -> -height
+             BarsCentered -> -(height/2)
+       forM_ (zip x2s styles) $ \((x0,x1), (fstyle,_)) ->
+           unless (x0 == x1) $
+           withFillStyle fstyle $
+             alignFillPath (barPath ofs x0 x1 y)
+             >>= fillPath
+       forM_ (zip x2s styles) $ \((x0,x1), (_,mlstyle)) ->
+           unless (x0 == x1) $
+           whenJust mlstyle $ \lstyle ->
+              withLineStyle lstyle $
+                alignStrokePath (barPath ofs x0 x1 y)
+                >>= strokePath
+       whenJust (_plot_bars_hover_labels p) $ \f ->
+         forM_ (zip (stack xs) (f xs)) $ \(x,s') ->
+            whenJust s' $ \s ->
+              do let Point x' y' = pmap' (x, y)
+                 (tx, ty) <- textDimension s
+                 drawText (Point (x' - tx/2) (y' - ty/2)) s
+
+    barPath yos x0 x1 y =
+      let Point x' y' = pmap' (x1,y)
+          Point x0' _ = pmap' (x0,y)
+      in
+      rectPath (Rect (Point x0' (y' + yos)) (Point x' (y' + yos + height)))
+
+    vals  = --let (as, bs) = unzip $
+            _plot_bars_values p
+            -- in zip as (reverse bs)
+    lowerVals = case _plot_bars_style p of
+                  BarsClustered -> concatMap snd vals
+                  BarsStacked   -> map (head . snd) vals
+
+    xref0 = _plot_bars_reference p lowerVals
+
+    height = case _plot_bars_spacing p of
+        BarsFixGap gap minw -> let w = max (minYInterval - gap) minw in
+            case _plot_bars_style p of
+                BarsClustered -> w / fromIntegral nxs
+                BarsStacked -> w
+        BarsFixWidth width' -> width'
+    styles = _plot_bars_item_styles p
+
+    minYInterval = let diffs = zipWith (-) (tail mxs) mxs
+                   in if null diffs
+                        then _plot_bars_singleton_width p
+                        else minimum diffs
+      where mxs = nub $ sort $ map (mapY . fst) $ _plot_bars_values p
+
+    nxs    = maximum [ length xs | (_,xs) <- vals ]
+
+    pmap'  = mapXY pmap
+    mapY y = p_y $ pmap' (xref0, y)
+
+-- util
 
 stack :: (BarsPlotValue y) => [y] -> [y]
 stack = scanl1 barsAdd
