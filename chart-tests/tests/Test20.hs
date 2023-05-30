@@ -29,7 +29,7 @@ chart = layoutToRenderable layout
       $ layout_title_style . font_size .~ 10
 
       -- X
-      $ layout_x_axis . laxis_generate .~ autoIndexAxis' True alabels
+      $ layout_x_axis . laxis_generate .~ autoIndexTicksAxis alabels
       $ layout_x_axis . laxis_override .~ axisGridAtTicks
       $ layout_x_axis . laxis_style . axis_grid_style .~ solidLine 0.3 (opaque lightgrey)
       $ layout_bottom_axis_visibility . axis_show_ticks .~ False

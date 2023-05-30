@@ -22,6 +22,25 @@ dat = [[0.921112,1.123134 ]
       ,[100.123 ,150.123  ]
       ,[1.333   ,1.0132   ]
       ,[2.345342,2.784568 ]
+      ,[25.112  ,35.5643  ]
+      ,[100.123 ,150.123  ]
+      ,[1.333   ,1.0132   ]
+      ,[2.345342,2.784568 ]
+      ,[110.1233,101.363  ]
+      ,[15.2213 ,12.856783]
+      ,[25.112  ,35.5643  ]
+      ,[100.123 ,150.123  ]
+      ,[1.333   ,1.0132   ]
+      ,[2.345342,2.784568 ]
+      ,[2.345342,2.784568 ]
+      ,[110.1233,101.363  ]
+      ,[15.2213 ,12.856783]
+      ,[25.112  ,35.5643  ]
+      ,[100.123 ,150.123  ]
+      ,[1.333   ,1.0132   ]
+      ,[2.345342,2.784568 ]
+      ,[110.1233,101.363  ]
+      ,[15.2213 ,12.856783]
       ,[2.345342,2.784568 ]
       ,[110.1233,101.363  ]
       ,[15.2213 ,12.856783]
@@ -33,7 +52,7 @@ dat = [[0.921112,1.123134 ]
       ,[15.2213 ,12.856783]
       ,[7.223   ,8.9832   ]]
 
-chart :: Renderable (LayoutPick LogValue PlotIndex PlotIndex)
+chart :: Renderable (LayoutPick LogValue PlotIndexRev PlotIndexRev)
 chart = layoutToRenderable layout
  where
   layout =
@@ -43,7 +62,7 @@ chart = layoutToRenderable layout
       $ layout_legend . _Just . legend_position .~ LegendAbove
 
       -- Y
-      $ layout_y_axis . laxis_generate .~ autoIndexAxis' True alabels
+      $ layout_y_axis . laxis_generate .~ autoIndexRevTicksAxis alabels
       $ layout_y_axis . laxis_override .~ axisGridAtTicks
       $ layout_y_axis . laxis_style . axis_grid_style .~ solidLine 0.3 (opaque lightgrey)
       $ layout_left_axis_visibility . axis_show_ticks .~ False
@@ -59,12 +78,12 @@ chart = layoutToRenderable layout
 
       -- data
       $ layout_plots .~ [ plotHBars bars2 ]
-      $ def :: Layout LogValue PlotIndex
+      $ def :: Layout LogValue PlotIndexRev
 
   bars2 = plot_bars_titles .~ ["","after","before"]
       $ plot_bars_values .~ addRevIndexes dat'
       $ plot_bars_style .~ BarsStacked
-      $ plot_bars_spacing .~ BarsFixGap 20 5
+      $ plot_bars_spacing .~ BarsFixGap 20 3
       $ plot_bars_hover_labels ?~ (\[b,p,m] -> [ Nothing
                                                , Nothing
                                                , Just $ printf "%0.2f" $ if p /= 0 then unLogValue p else -unLogValue m])
@@ -76,5 +95,5 @@ chart = layoutToRenderable layout
                         , LogValue $ if b < a then a - b else 0
                         ]) dat
 
-  alabels = map (\n -> "val" ++ show n) $ reverse $ take (length dat) [1..]
+  alabels = map (\n -> "val" ++ show n) $ take (length dat) [1..]
 
