@@ -224,9 +224,7 @@ renderPlotBars p pmap = case _plot_bars_style p of
                    in if null diffs
                         then _plot_bars_singleton_width p
                         else minimum diffs
-      where
-        xs  = fst (allBarPoints p)
-        mxs = nub $ sort $ map mapX xs
+      where mxs = nub $ sort $ map (mapX . fst) $ _plot_bars_values p
 
     nys    = maximum [ length ys | (_,ys) <- vals ]
 
@@ -237,12 +235,13 @@ allBarPoints :: (BarsPlotValue y) => PlotBars x y -> ([x],[y])
 allBarPoints p = case _plot_bars_style p of
     BarsClustered ->
       let ys = concatMap snd pts in
-      ( [x| (x,_) <- pts], f0 ys:ys )
+      ( xs, f0 ys:ys )
     BarsStacked   ->
       let ys = map snd pts in
-      ( [x| (x,_) <- pts], f0 (map head ys):concatMap stack ys)
+      ( xs, f0 (map head ys):concatMap stack ys)
   where
     pts = _plot_bars_values p
+    xs  = map fst pts
     f0  = _plot_bars_reference p
 
 stack :: (BarsPlotValue y) => [y] -> [y]
